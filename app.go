@@ -75,7 +75,25 @@ func findNode() string {
 	return node
 }
 
+func ensureNodeDeps() error {
+	asarDir := filepath.Join(baseDir, "node_modules", "@electron", "asar")
+	if _, err := os.Stat(asarDir); err == nil {
+		return nil
+	}
+	node := findNode()
+	cmd := exec.Command(node, "npm", "install")
+	cmd.Dir = baseDir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("npm install failed: %s: %s", err.Error(), strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
 func runNode(args ...string) (string, error) {
+	if err := ensureNodeDeps(); err != nil {
+		return "", err
+	}
 	node := findNode()
 	helper := filepath.Join(baseDir, "asar-helper.mjs")
 	allArgs := append([]string{helper}, args...)
