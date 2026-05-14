@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>GK Patcher</title>
+<link rel="stylesheet" href="./src/style.css">
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo"><span>GK</span> Patcher</div>
+    <div class="badge">1.0</div>
+    <span class="author">Dao Nguyen Hoang</span>
+  </header>
+
+  <div class="main">
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" data-tab="auto">Auto</button>
+      <button class="tab" data-tab="custom">Custom</button>
+    </div>
+
+    <!-- AUTO -->
+    <div id="tab-auto" class="tab-content">
+      <div class="card">
+        <div class="card-title">Detected Installations</div>
+        <div id="detectedList" class="item-list"></div>
+        <div class="btn-row" style="margin-top:10px">
+          <button class="btn btn-sec" onclick="scan()">Rescan</button>
+          <button class="btn btn-sec" onclick="browse()">Browse</button>
+        </div>
+      </div>
+      <div class="card" style="flex:1">
+        <div class="card-title">Log</div>
+        <div id="log-auto" class="log-box">Ready.</div>
+      </div>
+      <button id="btn-auto" class="btn btn-p" disabled onclick="applyAuto()">Apply Patch</button>
+    </div>
+
+    <!-- CUSTOM -->
+    <div id="tab-custom" class="tab-content" style="display:none">
+      <div class="card">
+        <div class="card-title">Select Patch Version</div>
+        <div id="patchList" class="item-list"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Target File</div>
+        <div id="asarInfo" class="asar-placeholder">No file selected</div>
+        <div class="btn-row" style="margin-top:10px">
+          <button class="btn btn-sec" onclick="browseCustom()">Browse</button>
+          <button class="btn btn-sec" onclick="detectCustom()">Auto Detect</button>
+        </div>
+        <div id="detectedCustom" class="item-list" style="margin-top:8px"></div>
+      </div>
+      <div class="card" style="flex:1">
+        <div class="card-title">Log</div>
+        <div id="log-custom" class="log-box">Ready.</div>
+      </div>
+      <button id="btn-custom" class="btn btn-p" disabled onclick="applyCustom()">Apply Patch</button>
+    </div>
+  </div>
+</div>
+<script src="./src/main.js" type="module"></script>
+</body>
+</html>

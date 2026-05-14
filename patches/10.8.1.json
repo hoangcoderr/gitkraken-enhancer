@@ -1,0 +1,10 @@
+{
+  "version": "10.8.1",
+  "patches": [
+    {
+      "file": "src/render/static/entryPoints/main/render.bundle.js",
+      "find": "const xr=ze.getLicensedFeatures=(0,ot.createSelector)(cr,(({licensedFeatures:We})=>We))",
+      "replace": "const xr=ze.getLicensedFeatures=(0,ot.createSelector)(cr,(({licensedFeatures:We})=>[...We, \"pro\"]))"
+    }
+  ]
+}

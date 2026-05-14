@@ -1,0 +1,26 @@
+# Build output
+build/
+
+# Dependencies
+node_modules/
+
+# Frontend
+frontend/dist/
+frontend/package-lock.json
+frontend/src/assets/fonts/
+
+# Package locks
+package-lock.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Wails
+wails-build/

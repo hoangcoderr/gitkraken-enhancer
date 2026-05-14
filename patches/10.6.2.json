@@ -1,0 +1,10 @@
+{
+  "version": "10.6.2",
+  "patches": [
+    {
+      "file": "src/render/static/entryPoints/main/render.bundle.js",
+      "find": "const An=(0,_t.createSelector)(mr,(({licensedFeatures:Be})=>Be));",
+      "replace": "const An=(0,_t.createSelector)(mr,(({licensedFeatures:Be})=>[...Be, \"pro\"]));"
+    }
+  ]
+}
