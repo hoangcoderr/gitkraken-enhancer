@@ -6,11 +6,7 @@ node_modules/
 
 # Frontend
 frontend/dist/
-frontend/package-lock.json
 frontend/src/assets/fonts/
-
-# Package locks
-package-lock.json
 
 # IDE
 .vscode/
