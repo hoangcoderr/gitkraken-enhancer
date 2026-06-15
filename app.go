@@ -39,7 +39,7 @@ var baseDir string
 func init() {
 	exe, _ := os.Executable()
 	baseDir = filepath.Dir(exe)
-	if _, err := os.Stat(filepath.Join(baseDir, "asar-helper.mjs")); err != nil {
+	if _, err := os.Stat(filepath.Join(baseDir, "patches")); err != nil {
 		wd, _ := os.Getwd()
 		baseDir = wd
 	}
@@ -57,77 +57,23 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 }
 
-func findNode() string {
-	if p := os.Getenv("NODE_PATH"); p != "" {
-		if st, err := os.Stat(filepath.Join(p, "node.exe")); err == nil && !st.IsDir() {
-			return filepath.Join(p, "node.exe")
-		}
-	}
-	for _, p := range []string{
-		"C:\\Program Files\\nodejs\\node.exe",
-		"C:\\Program Files (x86)\\nodejs\\node.exe",
-	} {
-		if fi, err := os.Stat(p); err == nil && !fi.IsDir() {
-			return p
-		}
-	}
-	node, _ := exec.LookPath("node")
-	return node
-}
-
-func ensureNodeDeps() error {
-	asarDir := filepath.Join(baseDir, "node_modules", "@electron", "asar")
-	if _, err := os.Stat(asarDir); err == nil {
-		return nil
-	}
-	node := findNode()
-	cmd := exec.Command(node, "npm", "install")
-	cmd.Dir = baseDir
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("npm install failed: %s: %s", err.Error(), strings.TrimSpace(string(out)))
-	}
-	return nil
-}
-
-func runNode(args ...string) (string, error) {
-	if err := ensureNodeDeps(); err != nil {
-		return "", err
-	}
-	node := findNode()
-	helper := filepath.Join(baseDir, "asar-helper.mjs")
-	allArgs := append([]string{helper}, args...)
-	cmd := exec.Command(node, allArgs...)
-	cmd.Dir = baseDir
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return strings.TrimSpace(string(out)), fmt.Errorf("%s: %s", err.Error(), strings.TrimSpace(string(out)))
-	}
-	return strings.TrimSpace(string(out)), nil
-}
-
 func (a *App) DetectAsar() []AsarInfo {
 	var results []AsarInfo
 	localAppData := os.Getenv("LOCALAPPDATA")
 	if localAppData != "" {
-		gkDir := filepath.Join(localAppData, "gitkraken")
-		results = append(results, scanGitKrakenDir(gkDir)...)
+		results = append(results, scanGitKrakenDir(filepath.Join(localAppData, "gitkraken"))...)
 	}
 	programData := os.Getenv("ProgramData")
 	if programData != "" {
 		results = append(results, scanGitKrakenDir(filepath.Join(programData, "gitkraken"))...)
-		userName := os.Getenv("USERNAME")
-		if userName != "" {
+		if userName := os.Getenv("USERNAME"); userName != "" {
 			results = append(results, scanGitKrakenDir(filepath.Join(programData, userName, "gitkraken"))...)
 		}
 	}
-	macPath := "/Applications/GitKraken.app/Contents/Resources/app.asar"
-	if st, err := os.Stat(macPath); err == nil {
-		results = append(results, AsarInfo{Path: macPath, Version: "mac", Size: st.Size()})
+	if st, err := os.Stat("/Applications/GitKraken.app/Contents/Resources/app.asar"); err == nil {
+		results = append(results, AsarInfo{Path: "/Applications/GitKraken.app/Contents/Resources/app.asar", Version: "mac", Size: st.Size()})
 	}
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].Version > results[j].Version
-	})
+	sort.Slice(results, func(i, j int) bool { return results[i].Version > results[j].Version })
 	return results
 }
 
@@ -137,6 +83,7 @@ func scanGitKrakenDir(gkDir string) []AsarInfo {
 	if err != nil {
 		return results
 	}
+	re := regexp.MustCompile(`(\d+\.\d+\.\d+)`)
 	for _, e := range entries {
 		if !e.IsDir() || !strings.HasPrefix(e.Name(), "app-") {
 			continue
@@ -146,17 +93,11 @@ func scanGitKrakenDir(gkDir string) []AsarInfo {
 		if err != nil {
 			continue
 		}
-		re := regexp.MustCompile(`(\d+\.\d+\.\d+)`)
-		m := re.FindStringSubmatch(e.Name())
 		v := "?"
-		if len(m) > 1 {
+		if m := re.FindStringSubmatch(e.Name()); len(m) > 1 {
 			v = m[1]
 		}
-		results = append(results, AsarInfo{
-			Path:    asarPath,
-			Version: v,
-			Size:    st.Size(),
-		})
+		results = append(results, AsarInfo{Path: asarPath, Version: v, Size: st.Size()})
 	}
 	return results
 }
@@ -181,9 +122,7 @@ func (a *App) GetPatches() []PatchFile {
 			results = append(results, pf)
 		}
 	}
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].Version > results[j].Version
-	})
+	sort.Slice(results, func(i, j int) bool { return results[i].Version > results[j].Version })
 	return results
 }
 
@@ -201,12 +140,109 @@ func (a *App) SelectAsar(path string) AsarInfo {
 	return AsarInfo{Path: path, Version: v, Size: st.Size()}
 }
 
-func (a *App) ApplyPatch(asarPath string, patch PatchFile) PatchResult {
-	extractDir, err := os.MkdirTemp("", "gk-extract-")
-	if err != nil {
-		return PatchResult{false, "Failed to create temp dir: " + err.Error()}
+func findNode() string {
+	if p := os.Getenv("NODE_PATH"); p != "" {
+		if st, err := os.Stat(filepath.Join(p, "node.exe")); err == nil && !st.IsDir() {
+			return filepath.Join(p, "node.exe")
+		}
 	}
-	defer os.RemoveAll(extractDir)
+	for _, p := range []string{
+		"C:\\Program Files\\nodejs\\node.exe",
+		"C:\\Program Files (x86)\\nodejs\\node.exe",
+	} {
+		if fi, err := os.Stat(p); err == nil && !fi.IsDir() {
+			return p
+		}
+	}
+	node, _ := exec.LookPath("node")
+	return node
+}
+
+func ensureAsarModule(node string) (string, error) {
+	helperEmbed := filepath.Join(baseDir, "asar-helper.mjs")
+
+	helperContent := `const m = await import('@electron/asar');
+const [,, action, src, dest] = process.argv;
+try {
+  if (action === 'extract') await m.extractAll(src, dest);
+  else if (action === 'pack') await m.createPackageWithOptions(src, dest, {});
+  process.exit(0);
+} catch (e) {
+  console.error(e.message);
+  process.exit(1);
+}`
+
+	if _, err := os.Stat(helperEmbed); err != nil {
+		os.WriteFile(helperEmbed, []byte(helperContent), 0644)
+	}
+
+	bundledModule := filepath.Join(baseDir, "node_modules", "@electron", "asar")
+	if st, err := os.Stat(bundledModule); err == nil && st.IsDir() {
+		return helperEmbed, nil
+	}
+
+	if node == "" {
+		return "", fmt.Errorf("Node.js not found. Please install Node.js")
+	}
+
+	npmDir := filepath.Join(os.TempDir(), "gk-npm-install")
+	if _, err := os.Stat(filepath.Join(npmDir, "node_modules", "@electron", "asar")); err != nil {
+		os.MkdirAll(npmDir, 0755)
+		helperDest := filepath.Join(npmDir, "asar-helper.mjs")
+		os.WriteFile(helperDest, []byte(helperContent), 0644)
+		jsonContent := []byte(`{"name":"gk-patch","private":true}`)
+		os.WriteFile(filepath.Join(npmDir, "package.json"), jsonContent, 0644)
+
+		npm, _ := exec.LookPath("npm")
+		if npm == "" {
+			npx, _ := exec.LookPath("npx")
+			if npx == "" {
+				return "", fmt.Errorf("Cannot find npm or npx. Install Node.js or bundle @electron/asar manually")
+			}
+			cmd := exec.Command(npx, "--yes", "@electron/asar")
+			cmd.Dir = npmDir
+			cmd.Run()
+		} else {
+			cmd := exec.Command(npm, "install", "@electron/asar")
+			cmd.Dir = npmDir
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				os.RemoveAll(npmDir)
+				return "", fmt.Errorf("npm install failed: %s: %s", err.Error(), strings.TrimSpace(string(out)))
+			}
+		}
+	}
+
+	helperFinal := filepath.Join(npmDir, "asar-helper.mjs")
+	if _, err := os.Stat(helperFinal); err != nil {
+		os.WriteFile(helperFinal, []byte(helperContent), 0644)
+	}
+	return helperFinal, nil
+}
+
+func (a *App) ApplyPatch(asarPath string, patch PatchFile) PatchResult {
+	node := findNode()
+
+	asarHelper, err := ensureAsarModule(node)
+	if err != nil {
+		return PatchResult{false, err.Error()}
+	}
+
+	tmpWork := filepath.Dir(asarHelper)
+
+	dirName := strings.TrimSuffix(filepath.Base(asarPath), ".asar")
+	extractDir := filepath.Join(tmpWork, dirName)
+
+	runNode := func(args ...string) (string, error) {
+		allArgs := append([]string{asarHelper}, args...)
+		cmd := exec.Command(node, allArgs...)
+		cmd.Dir = tmpWork
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return strings.TrimSpace(string(out)), fmt.Errorf("%s: %s", err.Error(), strings.TrimSpace(string(out)))
+		}
+		return strings.TrimSpace(string(out)), nil
+	}
 
 	if out, err := runNode("extract", asarPath, extractDir); err != nil {
 		return PatchResult{false, "Extract failed: " + err.Error() + "\n" + out}
@@ -230,26 +266,24 @@ func (a *App) ApplyPatch(asarPath string, patch PatchFile) PatchResult {
 		if err := os.WriteFile(fp, []byte(content), 0644); err != nil {
 			return PatchResult{false, fmt.Sprintf("Write failed: %s", err.Error())}
 		}
-		// Verify patch was applied
 		if !strings.Contains(content, "[...Ve,\"pro\"]") {
 			return PatchResult{false, "Patch verification failed - replacement not found"}
 		}
 	}
 
 	oldPath := asarPath + ".old"
-	tmpAsar := asarPath + ".tmp"
 	if _, err := os.Stat(oldPath); err != nil {
 		if err := copyFile(asarPath, oldPath); err != nil {
 			return PatchResult{false, "Backup failed: " + err.Error()}
 		}
 	}
 
+	tmpAsar := asarPath + ".tmp"
 	if out, err := runNode("pack", extractDir, tmpAsar); err != nil {
 		os.Remove(tmpAsar)
 		return PatchResult{false, "Repack failed: " + err.Error() + "\n" + out}
 	}
 
-	// Verify tmpAsar was created
 	st, err := os.Stat(tmpAsar)
 	if err != nil {
 		return PatchResult{false, "Tmp asar not created"}

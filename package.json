@@ -1,15 +1,8 @@
 {
-  "dependencies": {
-    "@electron/asar": "^4.2.0"
-  },
   "name": "gk-patcher-go",
   "version": "1.0.0",
-  "description": "This is the official Wails Vanilla template.",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC"
+  "private": true,
+  "dependencies": {
+    "@electron/asar": "^4.2.0"
+  }
 }
