@@ -17,13 +17,15 @@ func main() {
 
 	// Create application with options
 	err := wails.Run(&options.App{
-		Title:  "GK Patcher",
-		Width:  860,
-		Height: 720,
+		Title:     "GitKraken Enhancer",
+		Width:     980,
+		Height:    760,
+		MinWidth:  820,
+		MinHeight: 640,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
-		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
+		BackgroundColour: &options.RGBA{R: 15, G: 17, B: 23, A: 1},
 		OnStartup:        app.startup,
 		Bind: []interface{}{
 			app,

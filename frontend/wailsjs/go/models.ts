@@ -67,6 +67,9 @@ export namespace main {
 	export class PatchResult {
 	    success: boolean;
 	    message: string;
+	    newSize: number;
+	    path: string;
+	    version: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new PatchResult(source);
@@ -76,6 +79,9 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.success = source["success"];
 	        this.message = source["message"];
+	        this.newSize = source["newSize"];
+	        this.path = source["path"];
+	        this.version = source["version"];
 	    }
 	}
 

@@ -6,6 +6,10 @@ export function ApplyPatch(arg1, arg2) {
   return window['go']['main']['App']['ApplyPatch'](arg1, arg2);
 }
 
+export function BrowseAsar() {
+  return window['go']['main']['App']['BrowseAsar']();
+}
+
 export function DetectAsar() {
   return window['go']['main']['App']['DetectAsar']();
 }

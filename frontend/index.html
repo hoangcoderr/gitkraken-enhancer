@@ -1,66 +1,172 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>GK Patcher</title>
-<link rel="stylesheet" href="./src/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GitKraken Enhancer</title>
+  <link rel="stylesheet" href="./src/style.css">
 </head>
 <body>
-<div id="app">
-  <header>
-    <div class="logo"><span>GK</span> Patcher</div>
-    <div class="badge">1.0</div>
-    <span class="author">Dao Nguyen Hoang</span>
-  </header>
+  <div id="app">
+    <!-- Top bar -->
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2L3 7v10l9 5 9-5V7l-9-5z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+            <path d="M12 22V12M12 12L3 7M12 12l9-5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-title">GitKraken Enhancer</span>
+          <span class="brand-sub">Local client configuration tool</span>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <span class="pill" id="patchCountPill">— patches</span>
+        <span class="author">Dao Nguyen Hoang</span>
+      </div>
+    </header>
 
-  <div class="main">
     <!-- Tabs -->
-    <div class="tabs">
-      <button class="tab active" data-tab="auto">Auto</button>
-      <button class="tab" data-tab="custom">Custom</button>
-    </div>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="auto" role="tab" aria-selected="true">
+        <span class="tab-icon">⚡</span> Auto Detect
+      </button>
+      <button class="tab" data-tab="custom" role="tab" aria-selected="false">
+        <span class="tab-icon">🎛</span> Custom
+      </button>
+    </nav>
 
-    <!-- AUTO -->
-    <div id="tab-auto" class="tab-content">
-      <div class="card">
-        <div class="card-title">Detected Installations</div>
-        <div id="detectedList" class="item-list"></div>
-        <div class="btn-row" style="margin-top:10px">
-          <button class="btn btn-sec" onclick="scan()">Rescan</button>
-          <button class="btn btn-sec" onclick="browse()">Browse</button>
-        </div>
-      </div>
-      <div class="card" style="flex:1">
-        <div class="card-title">Log</div>
-        <div id="log-auto" class="log-box">Ready.</div>
-      </div>
-      <button id="btn-auto" class="btn btn-p" disabled onclick="applyAuto()">Apply Patch</button>
-    </div>
+    <main class="main">
+      <!-- AUTO -->
+      <section id="tab-auto" class="tab-panel active" role="tabpanel">
+        <div class="layout">
+          <div class="col">
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h2 class="card-title">Installations</h2>
+                  <p class="card-desc">GitKraken builds found on this machine</p>
+                </div>
+                <div class="btn-row">
+                  <button class="btn btn-ghost" id="btn-rescan" type="button">
+                    <span class="btn-ico">↻</span> Rescan
+                  </button>
+                  <button class="btn btn-ghost" id="btn-browse-auto" type="button">
+                    <span class="btn-ico">📂</span> Browse
+                  </button>
+                </div>
+              </div>
+              <div id="detectedList" class="item-list"></div>
+            </div>
 
-    <!-- CUSTOM -->
-    <div id="tab-custom" class="tab-content" style="display:none">
-      <div class="card">
-        <div class="card-title">Select Patch Version</div>
-        <div id="patchList" class="item-list"></div>
-      </div>
-      <div class="card">
-        <div class="card-title">Target File</div>
-        <div id="asarInfo" class="asar-placeholder">No file selected</div>
-        <div class="btn-row" style="margin-top:10px">
-          <button class="btn btn-sec" onclick="browseCustom()">Browse</button>
-          <button class="btn btn-sec" onclick="detectCustom()">Auto Detect</button>
+            <div class="card selection-card" id="selectionCard">
+              <div class="card-head">
+                <div>
+                  <h2 class="card-title">Selection</h2>
+                  <p class="card-desc">Target that will be patched</p>
+                </div>
+                <span class="status-dot" id="selectionStatus" data-state="idle">Idle</span>
+              </div>
+              <div id="selectionBody" class="selection-body empty">
+                <div class="empty-state">
+                  <div class="empty-icon">◎</div>
+                  <p>Select an installation with a ready patch</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col col-side">
+            <div class="card console-card">
+              <div class="card-head">
+                <div>
+                  <h2 class="card-title">Console</h2>
+                  <p class="card-desc">Live activity log</p>
+                </div>
+                <button class="btn btn-ghost btn-sm" id="btn-clear-auto" type="button">Clear</button>
+              </div>
+              <div id="log-auto" class="log-box" aria-live="polite"></div>
+              <div class="progress-wrap" id="progress-auto" hidden>
+                <div class="progress-meta">
+                  <span id="progress-auto-label">Working…</span>
+                  <span id="progress-auto-pct">0%</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" id="progress-auto-fill"></div></div>
+              </div>
+            </div>
+
+            <button id="btn-auto" class="btn btn-primary btn-lg" disabled type="button">
+              Apply Patch
+            </button>
+          </div>
         </div>
-        <div id="detectedCustom" class="item-list" style="margin-top:8px"></div>
-      </div>
-      <div class="card" style="flex:1">
-        <div class="card-title">Log</div>
-        <div id="log-custom" class="log-box">Ready.</div>
-      </div>
-      <button id="btn-custom" class="btn btn-p" disabled onclick="applyCustom()">Apply Patch</button>
-    </div>
+      </section>
+
+      <!-- CUSTOM -->
+      <section id="tab-custom" class="tab-panel" role="tabpanel" hidden>
+        <div class="layout">
+          <div class="col">
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h2 class="card-title">Patch Version</h2>
+                  <p class="card-desc">Choose which patch definition to apply</p>
+                </div>
+              </div>
+              <div id="patchList" class="item-list"></div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h2 class="card-title">Target File</h2>
+                  <p class="card-desc">Select the app.asar to modify</p>
+                </div>
+                <div class="btn-row">
+                  <button class="btn btn-ghost" id="btn-browse-custom" type="button">Browse</button>
+                  <button class="btn btn-ghost" id="btn-detect-custom" type="button">Auto Detect</button>
+                </div>
+              </div>
+              <div id="asarInfo" class="asar-info empty">
+                <span class="muted">No file selected</span>
+              </div>
+              <div id="detectedCustom" class="item-list" style="margin-top:10px"></div>
+            </div>
+          </div>
+
+          <div class="col col-side">
+            <div class="card console-card">
+              <div class="card-head">
+                <div>
+                  <h2 class="card-title">Console</h2>
+                  <p class="card-desc">Live activity log</p>
+                </div>
+                <button class="btn btn-ghost btn-sm" id="btn-clear-custom" type="button">Clear</button>
+              </div>
+              <div id="log-custom" class="log-box" aria-live="polite"></div>
+              <div class="progress-wrap" id="progress-custom" hidden>
+                <div class="progress-meta">
+                  <span id="progress-custom-label">Working…</span>
+                  <span id="progress-custom-pct">0%</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" id="progress-custom-fill"></div></div>
+              </div>
+            </div>
+
+            <button id="btn-custom" class="btn btn-primary btn-lg" disabled type="button">
+              Apply Patch
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>Offline · Local only · Original asar backed up as <code>.old</code></span>
+    </footer>
   </div>
-</div>
-<script src="./src/main.js" type="module"></script>
+  <script src="./src/main.js" type="module"></script>
 </body>
 </html>

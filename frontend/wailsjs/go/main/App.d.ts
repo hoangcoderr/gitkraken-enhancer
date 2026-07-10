@@ -4,6 +4,8 @@ import {main} from '../models';
 
 export function ApplyPatch(arg1:string,arg2:main.PatchFile):Promise<main.PatchResult>;
 
+export function BrowseAsar():Promise<main.AsarInfo>;
+
 export function DetectAsar():Promise<Array<main.AsarInfo>>;
 
 export function GetPatches():Promise<Array<main.PatchFile>>;
