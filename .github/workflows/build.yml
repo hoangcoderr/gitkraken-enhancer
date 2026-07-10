@@ -3,10 +3,14 @@ name: Build
 on:
   push:
     branches: [main]
+    tags: ['v*']          # push tag v1.0.0 → build + tạo/cập nhật Release
   pull_request:
     branches: [main]
   release:
-    types: [published]
+    types: [published]    # tạo Release trên GitHub UI → build + đính kèm asset
+
+permissions:
+  contents: write         # cần để upload file vào Release
 
 jobs:
   build-windows:
@@ -95,12 +99,24 @@ jobs:
           path: build/bin/
           retention-days: 30
 
+  # Chỉ chạy khi: publish Release trên UI, hoặc push tag v*
   release:
     needs: [build-windows, build-macos]
     runs-on: ubuntu-latest
-    if: github.event_name == 'release' && github.event.action == 'published'
+    if: |
+      github.event_name == 'release' ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
     steps:
       - uses: actions/checkout@v4
+
+      - name: Resolve version tag
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "tag=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Download Windows artifact
         uses: actions/download-artifact@v4
@@ -116,12 +132,21 @@ jobs:
 
       - name: Create archives
         run: |
-          cd dist/windows && zip -r ../gitkraken-enhancer-${{ github.event.release.tag_name }}-windows.zip .
-          cd ../macos && tar czf ../gitkraken-enhancer-${{ github.event.release.tag_name }}-macos.tar.gz .
+          TAG="${{ steps.ver.outputs.tag }}"
+          (cd dist/windows && zip -r "../gitkraken-enhancer-${TAG}-windows.zip" .)
+          (cd dist/macos && tar czf "../gitkraken-enhancer-${TAG}-macos.tar.gz" .)
+          ls -lh dist/*.zip dist/*.tar.gz
 
-      - name: Upload release assets
+      - name: Upload assets to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: GitKraken Enhancer ${{ steps.ver.outputs.tag }}
+          draft: false
+          prerelease: ${{ contains(steps.ver.outputs.tag, '-') }}
+          generate_release_notes: true
           files: |
-            dist/gitkraken-enhancer-${{ github.event.release.tag_name }}-windows.zip
-            dist/gitkraken-enhancer-${{ github.event.release.tag_name }}-macos.tar.gz
+            dist/gitkraken-enhancer-${{ steps.ver.outputs.tag }}-windows.zip
+            dist/gitkraken-enhancer-${{ steps.ver.outputs.tag }}-macos.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
