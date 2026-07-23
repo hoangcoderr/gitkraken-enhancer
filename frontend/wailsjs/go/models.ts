@@ -20,6 +20,7 @@ export namespace main {
 	    file: string;
 	    find: string;
 	    replace: string;
+	    type?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Patch(source);
@@ -30,6 +31,7 @@ export namespace main {
 	        this.file = source["file"];
 	        this.find = source["find"];
 	        this.replace = source["replace"];
+	        this.type = source["type"];
 	    }
 	}
 	export class PatchFile {

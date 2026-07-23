@@ -24,6 +24,7 @@ type Patch struct {
 	File    string `json:"file"`
 	Find    string `json:"find"`
 	Replace string `json:"replace"`
+	Type    string `json:"type,omitempty"` // "exact" (default) or "regex"
 }
 
 type PatchFile struct {
@@ -197,15 +198,15 @@ func ensureAsarModule(node string) (string, error) {
 	helperEmbed := filepath.Join(baseDir, "asar-helper.mjs")
 
 	helperContent := `const m = await import('@electron/asar');
-const [,, action, src, dest] = process.argv;
-try {
-  if (action === 'extract') await m.extractAll(src, dest);
-  else if (action === 'pack') await m.createPackageWithOptions(src, dest, {});
-  process.exit(0);
-} catch (e) {
-  console.error(e.message);
-  process.exit(1);
-}`
+	const [,, action, src, dest] = process.argv;
+	try {
+	  if (action === 'extract') await m.extractAll(src, dest);
+	  else if (action === 'pack') await m.createPackageWithOptions(src, dest, {});
+	  process.exit(0);
+	} catch (e) {
+	  console.error(e.message);
+	  process.exit(1);
+	}`
 
 	if _, err := os.Stat(helperEmbed); err != nil {
 		os.WriteFile(helperEmbed, []byte(helperContent), 0644)
@@ -318,11 +319,24 @@ func (a *App) ApplyPatch(asarPath string, patch PatchFile) PatchResult {
 		if isAlreadyPatched(content) {
 			return fail("Already patched! This asar has been modified before.")
 		}
-		if !strings.Contains(content, p.Find) {
-			return fail(fmt.Sprintf("Pattern not found in %s", p.File))
+		switch p.Type {
+		case "regex":
+			re, err := regexp.Compile(p.Find)
+			if err != nil {
+				return fail(fmt.Sprintf("Invalid regex in patch for %s: %s", p.File, err.Error()))
+			}
+			loc := re.FindStringIndex(content)
+			if loc == nil {
+				return fail(fmt.Sprintf("Regex pattern not found in %s", p.File))
+			}
+			content = content[:loc[0]] + p.Replace + content[loc[1]:]
+		default:
+			if !strings.Contains(content, p.Find) {
+				return fail(fmt.Sprintf("Pattern not found in %s", p.File))
+			}
+			idx := strings.Index(content, p.Find)
+			content = content[:idx] + p.Replace + content[idx+len(p.Find):]
 		}
-		idx := strings.Index(content, p.Find)
-		content = content[:idx] + p.Replace + content[idx+len(p.Find):]
 		if err := os.WriteFile(fp, []byte(content), 0644); err != nil {
 			return fail(fmt.Sprintf("Write failed: %s", err.Error()))
 		}
@@ -384,8 +398,6 @@ func (a *App) ApplyPatch(asarPath string, patch PatchFile) PatchResult {
 		Version: patch.Version,
 	}
 }
-
-
 
 func copyFile(src, dst string) error {
 	data, err := os.ReadFile(src)
