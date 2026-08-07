@@ -1,0 +1,10 @@
+{
+  "version": "12.4.0",
+  "patches": [
+    {
+      "file": "src/render/static/entryPoints/main/render.bundle.js",
+      "find": "const Ea=at.getLicensedFeatures=(0,An.createSelector)(getAppSettings,(({licensedFeatures:Ve})=>Ve))",
+      "replace": "const Ea=at.getLicensedFeatures=(0,An.createSelector)(getAppSettings,(({licensedFeatures:Ve})=>[...Ve,\"pro\"]))"
+    }
+  ]
+}
