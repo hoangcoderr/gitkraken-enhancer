@@ -13,7 +13,7 @@ GitKraken Enhancer is a lightweight desktop utility that adjusts local client se
 - Auto-detect GitKraken installations across multiple directories
 - One-click configuration application
 - Clean, modern light-themed UI
-- Supports multiple GitKraken versions (10.6.0 - 12.6.2)
+- Supports multiple GitKraken versions (10.6.0 - 12.7.0)
 - Automatic backup of original `app.asar` before applying changes
 - Custom asar file selection for non-standard installations
 
@@ -21,6 +21,7 @@ GitKraken Enhancer is a lightweight desktop utility that adjusts local client se
 
 | GitKraken Version | Status |
 |------------------|--------|
+| 12.7.0           | Supported |
 | 12.6.2           | Supported |
 | 12.6.1           | Supported |
 | 12.6.0           | Supported |
