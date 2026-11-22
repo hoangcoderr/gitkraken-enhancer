@@ -86,6 +86,44 @@ export namespace main {
 	        this.version = source["version"];
 	    }
 	}
+	export class UpdateBlockResult {
+	    success: boolean;
+	    blocked: boolean;
+	    message: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new UpdateBlockResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.success = source["success"];
+	        this.blocked = source["blocked"];
+	        this.message = source["message"];
+	    }
+	}
+	export class UpdateBlockStatus {
+	    supported: boolean;
+	    blocked: boolean;
+	    installDir?: string;
+	    updateExe?: string;
+	    backupPath?: string;
+	    message: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new UpdateBlockStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.supported = source["supported"];
+	        this.blocked = source["blocked"];
+	        this.installDir = source["installDir"];
+	        this.updateExe = source["updateExe"];
+	        this.backupPath = source["backupPath"];
+	        this.message = source["message"];
+	    }
+	}
 
 }
 

@@ -234,3 +234,83 @@ func TestCollectAsarEntriesRoundTrip(t *testing.T) {
 		t.Fatalf("header pickle size mismatch: rebuilt %d, original %d", got, headerPickleLen)
 	}
 }
+
+func TestUpdateBlockToggle(t *testing.T) {
+	root := t.TempDir()
+	resources := filepath.Join(root, "app-12.7.0", "resources")
+	if err := os.MkdirAll(resources, 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	asarPath := filepath.Join(resources, "app.asar")
+	if err := os.WriteFile(asarPath, []byte("archive"), 0644); err != nil {
+		t.Fatalf("write asar: %v", err)
+	}
+
+	if st := getUpdateBlockStatus(asarPath); st.Supported {
+		t.Fatalf("install without Update.exe should be unsupported: %+v", st)
+	}
+
+	updateExe := filepath.Join(root, "Update.exe")
+	if err := os.WriteFile(updateExe, []byte("squirrel"), 0644); err != nil {
+		t.Fatalf("write Update.exe: %v", err)
+	}
+
+	st := getUpdateBlockStatus(asarPath)
+	if !st.Supported || st.Blocked {
+		t.Fatalf("expected supported and enabled, got %+v", st)
+	}
+	if st.InstallDir != root {
+		t.Fatalf("install root = %q, want %q", st.InstallDir, root)
+	}
+
+	res := setUpdatesBlocked(asarPath, true)
+	if !res.Success || !res.Blocked {
+		t.Fatalf("block failed: %+v", res)
+	}
+	if _, err := os.Stat(updateExe); !os.IsNotExist(err) {
+		t.Fatalf("Update.exe should be renamed away, stat err = %v", err)
+	}
+	if _, err := os.Stat(updateExe + ".disabled"); err != nil {
+		t.Fatalf("backup missing: %v", err)
+	}
+	if st = getUpdateBlockStatus(asarPath); !st.Supported || !st.Blocked {
+		t.Fatalf("expected supported and blocked, got %+v", st)
+	}
+
+	// Blocking twice is a no-op.
+	if res = setUpdatesBlocked(asarPath, true); !res.Success || !res.Blocked {
+		t.Fatalf("idempotent block failed: %+v", res)
+	}
+
+	res = setUpdatesBlocked(asarPath, false)
+	if !res.Success || res.Blocked {
+		t.Fatalf("unblock failed: %+v", res)
+	}
+	if _, err := os.Stat(updateExe); err != nil {
+		t.Fatalf("Update.exe was not restored: %v", err)
+	}
+	if _, err := os.Stat(updateExe + ".disabled"); !os.IsNotExist(err) {
+		t.Fatalf("backup should be gone, stat err = %v", err)
+	}
+
+	// Enabling twice is also a no-op.
+	if res = setUpdatesBlocked(asarPath, false); !res.Success || res.Blocked {
+		t.Fatalf("idempotent unblock failed: %+v", res)
+	}
+}
+
+func TestGitKrakenInstallRootRejectsNonStandardPaths(t *testing.T) {
+	if _, err := gitKrakenInstallRoot(""); err == nil {
+		t.Fatal("empty path should be rejected")
+	}
+	if _, err := gitKrakenInstallRoot(filepath.Join(t.TempDir(), "other.asar")); err == nil {
+		t.Fatal("non app.asar name should be rejected")
+	}
+	dir := filepath.Join(t.TempDir(), "not-a-version", "resources")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if _, err := gitKrakenInstallRoot(filepath.Join(dir, "app.asar")); err == nil {
+		t.Fatal("non app-<version> layout should be rejected")
+	}
+}

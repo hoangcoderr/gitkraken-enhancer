@@ -1,5 +1,5 @@
 import './style.css';
-import { DetectAsar, GetPatches, ApplyPatch, BrowseAsar } from '../wailsjs/go/main/App';
+import { DetectAsar, GetPatches, ApplyPatch, BrowseAsar, GetUpdateBlockStatus, SetUpdatesBlocked } from '../wailsjs/go/main/App';
 import { EventsOn } from '../wailsjs/runtime/runtime';
 
 function cssEscape(s) {
@@ -10,6 +10,8 @@ function cssEscape(s) {
 /** @typedef {{ path: string, version: string, size: number }} AsarInfo */
 /** @typedef {{ version: string, patches: Array<{file:string,find:string,replace:string}> }} PatchFile */
 /** @typedef {{ success: boolean, message: string, newSize?: number, path?: string, version?: string }} PatchResult */
+/** @typedef {{ supported: boolean, blocked: boolean, installDir?: string, updateExe?: string, backupPath?: string, message: string }} UpdateBlockStatus */
+/** @typedef {{ success: boolean, blocked: boolean, message: string }} UpdateBlockResult */
 
 let patches = /** @type {PatchFile[]} */ ([]);
 /** @type {AsarInfo|null} */ let autoAsar = null;
@@ -19,6 +21,8 @@ let patches = /** @type {PatchFile[]} */ ([]);
 /** @type {Set<string>} */ let patchedPaths = new Set();
 let applying = false;
 /** @type {'auto'|'custom'} */ let activeTab = 'auto';
+/** @type {{auto:number, custom:number}} */
+const updateReqSeq = { auto: 0, custom: 0 };
 
 const $ = (id) => document.getElementById(id);
 
@@ -162,17 +166,102 @@ function renderSelection() {
         <label>Path</label>
         <div class="val mono">${escapeHtml(autoAsar.path)}</div>
       </div>
+      <div class="sel-field full">
+        <label>Auto-update</label>
+        <div class="val update-control">
+          <button class="switch" id="blockUpdate-auto" type="button" role="switch" aria-checked="false" disabled>
+            <span class="switch-thumb"></span>
+          </button>
+          <span class="update-state" id="blockUpdateStatus-auto" data-state="checking">Checking…</span>
+        </div>
+      </div>
     </div>`;
 
   if (applying) setSelectionStatus('busy', 'Patching…');
   else if (isPatched) setSelectionStatus('done', 'Patched');
   else if (patchReady) setSelectionStatus('ready', 'Ready');
   else setSelectionStatus('error', 'No patch');
+
+  syncUpdateControl('auto', autoAsar.path);
 }
 
 function updateSelectionSize(size) {
   const el = $('selectionSize');
   if (el) el.textContent = formatSize(size);
+}
+
+/**
+ * Refresh the auto-update switch for the selected installation.
+ * @param {'auto'|'custom'} tab
+ * @param {string} asarPath
+ */
+async function syncUpdateControl(tab, asarPath) {
+  const btn = $('blockUpdate-' + tab);
+  const state = $('blockUpdateStatus-' + tab);
+  if (!btn || !state) return;
+
+  const seq = ++updateReqSeq[tab];
+  btn.disabled = true;
+  btn.setAttribute('aria-checked', 'false');
+  state.dataset.state = 'checking';
+  state.textContent = 'Checking…';
+  state.title = '';
+
+  try {
+    const st = await GetUpdateBlockStatus(asarPath);
+    if (seq !== updateReqSeq[tab]) return;
+    if (!st || !st.supported) {
+      btn.disabled = true;
+      state.dataset.state = 'error';
+      state.textContent = 'Unavailable';
+      state.title = st?.message || 'Auto-update control is not supported for this install';
+      return;
+    }
+    btn.disabled = false;
+    btn.setAttribute('aria-checked', st.blocked ? 'true' : 'false');
+    state.dataset.state = st.blocked ? 'blocked' : 'enabled';
+    state.textContent = st.blocked ? 'Blocked' : 'Enabled';
+    state.title = st.message || '';
+  } catch (e) {
+    if (seq !== updateReqSeq[tab]) return;
+    btn.disabled = true;
+    state.dataset.state = 'error';
+    state.textContent = 'Unknown';
+    state.title = String(e?.message || e);
+  }
+}
+
+/**
+ * Toggle GitKraken's Squirrel auto-updater (Windows only).
+ * @param {'auto'|'custom'} tab
+ */
+async function toggleUpdateBlock(tab) {
+  if (applying) return;
+  const asar = tab === 'auto' ? autoAsar : customAsar;
+  const btn = $('blockUpdate-' + tab);
+  const state = $('blockUpdateStatus-' + tab);
+  if (!asar || !btn || !state || btn.disabled) return;
+
+  const wantBlocked = btn.getAttribute('aria-checked') !== 'true';
+  btn.disabled = true;
+  state.dataset.state = 'checking';
+  state.textContent = wantBlocked ? 'Blocking…' : 'Restoring…';
+
+  /** @type {UpdateBlockResult|null} */
+  let res = null;
+  try {
+    res = await SetUpdatesBlocked(asar.path, wantBlocked);
+  } catch (e) {
+    res = { success: false, blocked: !wantBlocked, message: String(e?.message || e) };
+  }
+
+  if (res?.success) {
+    log(res.message || (wantBlocked ? 'Auto-updates blocked' : 'Auto-updates enabled'), 'ok', tab);
+  } else {
+    log(res?.message || 'Failed to change auto-update setting', 'err', tab);
+  }
+
+  await syncUpdateControl(tab, asar.path);
 }
 
 function renderAsarInfo() {
@@ -198,7 +287,17 @@ function renderAsarInfo() {
         <label>Path</label>
         <div class="val mono">${escapeHtml(customAsar.path)}</div>
       </div>
+      <div class="sel-field full">
+        <label>Auto-update</label>
+        <div class="val update-control">
+          <button class="switch" id="blockUpdate-custom" type="button" role="switch" aria-checked="false" disabled>
+            <span class="switch-thumb"></span>
+          </button>
+          <span class="update-state" id="blockUpdateStatus-custom" data-state="checking">Checking…</span>
+        </div>
+      </div>
     </div>`;
+  syncUpdateControl('custom', customAsar.path);
 }
 
 // ── Tabs ─────────────────────────────────────────────────────
@@ -594,6 +693,14 @@ function wire() {
   $('btn-custom')?.addEventListener('click', () => applyPatch('custom'));
   $('btn-clear-auto')?.addEventListener('click', () => clearLog('auto'));
   $('btn-clear-custom')?.addEventListener('click', () => clearLog('custom'));
+
+  // The selection panels are re-rendered, so delegate the switch clicks.
+  $('selectionBody')?.addEventListener('click', (e) => {
+    if (e.target.closest('#blockUpdate-auto')) toggleUpdateBlock('auto');
+  });
+  $('asarInfo')?.addEventListener('click', (e) => {
+    if (e.target.closest('#blockUpdate-custom')) toggleUpdateBlock('custom');
+  });
 
   // Initial empty consoles
   clearLog('auto');

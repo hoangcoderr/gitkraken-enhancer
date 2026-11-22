@@ -10,4 +10,8 @@ export function DetectAsar():Promise<Array<main.AsarInfo>>;
 
 export function GetPatches():Promise<Array<main.PatchFile>>;
 
+export function GetUpdateBlockStatus(arg1:string):Promise<main.UpdateBlockStatus>;
+
 export function SelectAsar(arg1:string):Promise<main.AsarInfo>;
+
+export function SetUpdatesBlocked(arg1:string,arg2:boolean):Promise<main.UpdateBlockResult>;

@@ -14,6 +14,7 @@ GitKraken Enhancer is a lightweight desktop utility that adjusts local client se
 - One-click configuration application
 - Clean, modern light-themed UI
 - Supports multiple GitKraken versions (10.6.0 - 12.7.0)
+- Optional blocking of GitKraken auto-updates (Windows)
 - Automatic backup of original `app.asar` before applying changes
 - Custom asar file selection for non-standard installations
 
@@ -46,6 +47,10 @@ GitKraken Enhancer is a lightweight desktop utility that adjusts local client se
 | 10.6.2           | Supported |
 | 10.6.1           | Supported |
 | 10.6.0           | Supported |
+
+## Block Auto-Updates (Windows)
+
+GitKraken uses Squirrel's `Update.exe` to download and install new releases. Select an installation and toggle **Auto-update** in the selection panel to block updates; this renames `Update.exe` to `Update.exe.disabled`. Toggle it back to restore auto-updates. Blocking requires the same privileges as patching (Administrator for installs under `%ProgramData%`).
 
 ## Installation Detection Paths
 

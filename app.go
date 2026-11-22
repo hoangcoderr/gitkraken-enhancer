@@ -48,6 +48,21 @@ type PatchResult struct {
 	Version string `json:"version"`
 }
 
+type UpdateBlockStatus struct {
+	Supported  bool   `json:"supported"`
+	Blocked    bool   `json:"blocked"`
+	InstallDir string `json:"installDir,omitempty"`
+	UpdateExe  string `json:"updateExe,omitempty"`
+	BackupPath string `json:"backupPath,omitempty"`
+	Message    string `json:"message"`
+}
+
+type UpdateBlockResult struct {
+	Success bool   `json:"success"`
+	Blocked bool   `json:"blocked"`
+	Message string `json:"message"`
+}
+
 var baseDir string
 
 func init() {
@@ -114,6 +129,111 @@ func scanGitKrakenDir(gkDir string) []AsarInfo {
 		results = append(results, AsarInfo{Path: asarPath, Version: v, Size: st.Size()})
 	}
 	return results
+}
+
+// gitKrakenInstallRoot derives the Squirrel install directory from a standard
+// app.asar path: <root>\app-<version>\resources\app.asar.
+func gitKrakenInstallRoot(asarPath string) (string, error) {
+	if strings.TrimSpace(asarPath) == "" {
+		return "", fmt.Errorf("app.asar path is empty")
+	}
+	abs, err := filepath.Abs(asarPath)
+	if err != nil {
+		return "", err
+	}
+	if !strings.EqualFold(filepath.Base(abs), "app.asar") {
+		return "", fmt.Errorf("not a standard app.asar path")
+	}
+	resources := filepath.Dir(abs)
+	appDir := filepath.Dir(resources)
+	if !strings.HasPrefix(strings.ToLower(filepath.Base(appDir)), "app-") {
+		return "", fmt.Errorf("not a standard versioned GitKraken install")
+	}
+	return filepath.Dir(appDir), nil
+}
+
+func getUpdateBlockStatus(asarPath string) UpdateBlockStatus {
+	st := UpdateBlockStatus{}
+	root, err := gitKrakenInstallRoot(asarPath)
+	if err != nil {
+		st.Message = err.Error()
+		return st
+	}
+
+	updateExe := filepath.Join(root, "Update.exe")
+	backupPath := updateExe + ".disabled"
+	st.InstallDir = root
+	st.UpdateExe = updateExe
+	st.BackupPath = backupPath
+
+	updateExists := regularFileExists(updateExe)
+	backupExists := regularFileExists(backupPath)
+	switch {
+	case updateExists:
+		st.Supported = true
+		st.Message = "Auto-updates are enabled"
+	case backupExists:
+		st.Supported = true
+		st.Blocked = true
+		st.Message = "Auto-updates are blocked"
+	default:
+		st.Message = "Update.exe not found — auto-update control is unavailable"
+	}
+	return st
+}
+
+// SetUpdatesBlocked enables or disables GitKraken's Windows auto-updater by
+// renaming Squirrel's Update.exe. The application checks for Update.exe on
+// startup; when it is missing the whole update manager is disabled.
+func (a *App) SetUpdatesBlocked(asarPath string, blocked bool) UpdateBlockResult {
+	return setUpdatesBlocked(asarPath, blocked)
+}
+
+func setUpdatesBlocked(asarPath string, blocked bool) UpdateBlockResult {
+	st := getUpdateBlockStatus(asarPath)
+	if !st.Supported {
+		return UpdateBlockResult{Message: st.Message}
+	}
+	if st.Blocked == blocked {
+		msg := "Auto-updates are already enabled"
+		if blocked {
+			msg = "Auto-updates are already blocked"
+		}
+		return UpdateBlockResult{Success: true, Blocked: blocked, Message: msg}
+	}
+
+	if blocked {
+		// A previous block may have left a stale backup behind (for example
+		// after a manual reinstall). Replace it with the current binary.
+		if err := os.Remove(st.BackupPath); err != nil && !os.IsNotExist(err) {
+			return UpdateBlockResult{Message: updateOpError("Cannot replace existing backup", err)}
+		}
+		if err := os.Rename(st.UpdateExe, st.BackupPath); err != nil {
+			return UpdateBlockResult{Message: updateOpError("Cannot block auto-updates", err)}
+		}
+		return UpdateBlockResult{Success: true, Blocked: true, Message: "Auto-updates blocked. GitKraken will no longer update itself."}
+	}
+
+	if err := os.Rename(st.BackupPath, st.UpdateExe); err != nil {
+		return UpdateBlockResult{Message: updateOpError("Cannot restore auto-updates", err)}
+	}
+	return UpdateBlockResult{Success: true, Blocked: false, Message: "Auto-updates enabled again."}
+}
+
+func (a *App) GetUpdateBlockStatus(asarPath string) UpdateBlockStatus {
+	return getUpdateBlockStatus(asarPath)
+}
+
+func regularFileExists(path string) bool {
+	st, err := os.Stat(path)
+	return err == nil && !st.IsDir()
+}
+
+func updateOpError(action string, err error) string {
+	if errors.Is(err, os.ErrPermission) {
+		return action + ": permission denied. Restart GitKraken Enhancer as Administrator and try again."
+	}
+	return action + ": " + err.Error()
 }
 
 func (a *App) GetPatches() []PatchFile {

@@ -18,6 +18,14 @@ export function GetPatches() {
   return window['go']['main']['App']['GetPatches']();
 }
 
+export function GetUpdateBlockStatus(arg1) {
+  return window['go']['main']['App']['GetUpdateBlockStatus'](arg1);
+}
+
 export function SelectAsar(arg1) {
   return window['go']['main']['App']['SelectAsar'](arg1);
+}
+
+export function SetUpdatesBlocked(arg1, arg2) {
+  return window['go']['main']['App']['SetUpdatesBlocked'](arg1, arg2);
 }
