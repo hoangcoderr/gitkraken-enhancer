@@ -50,7 +50,7 @@ GitKraken Enhancer is a lightweight desktop utility that adjusts local client se
 
 ## Block Auto-Updates (Windows)
 
-GitKraken uses Squirrel's `Update.exe` to download and install new releases. Select an installation and toggle **Auto-update** in the selection panel to block updates; this renames `Update.exe` to `Update.exe.disabled`. Toggle it back to restore auto-updates. Blocking requires the same privileges as patching (Administrator for installs under `%ProgramData%`).
+GitKraken uses Squirrel's `Update.exe` to download and install new releases. Select an installation and toggle **Auto-update** in the selection panel to block updates; this renames `Update.exe` to `Update.exe.disabled`. Toggle it back to restore auto-updates. Blocking requires the same privileges as patching (Administrator for installs under `%ProgramData%`). Restore auto-updates before uninstalling GitKraken, since Squirrel's uninstaller also uses `Update.exe`.
 
 ## Installation Detection Paths
 
